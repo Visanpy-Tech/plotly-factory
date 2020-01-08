@@ -285,7 +285,7 @@ def plot_histograms(df, main_column, main_categories, sub_column=None, sub_categ
         )
     
     if color_pallete=="default":
-        colors = ["#191970", "#64b5f6", "#ef6c00", "#ffd54f"]
+        color_pallete = ["#191970", "#64b5f6", "#ef6c00", "#ffd54f"]
     
     
     # a trick to generate bar charts only for main category
@@ -348,7 +348,7 @@ def plot_histograms(df, main_column, main_categories, sub_column=None, sub_categ
         bar = go.Bar(
                 y=np.round(y_, 2),
                 x=x_,
-                marker=dict(color=colors[k], opacity=0.7),
+                marker=dict(color=color_pallete[k], opacity=0.7),
                 name=sub,
                 text=text,
                 textposition="auto",
@@ -362,7 +362,7 @@ def plot_histograms(df, main_column, main_categories, sub_column=None, sub_categ
                 fig = make_subplots(rows=2, cols=1)
             box = go.Box(
                 x=df.loc[df[sub_column] == sub][main_column],
-                marker=dict(color=colors[k]),
+                marker=dict(color=color_pallete[k]),
                 boxpoints=points,
                 notched=notched,
                 boxmean=mean,
@@ -480,8 +480,7 @@ def plot_heatmap(df_corr, colorscale="brwnyl", cut_in_half = False, showscale=Tr
 
 
 
-def plot_table(df, cell_height=45, header_font="default", cell_font="default", header_bg_color="#191970", header_align="center", 
-               cell_align="center", cell_bg_colors=["#9EDFF9", "white"], line_color="lightgrey", line_width=2, transparent=False):
+def plot_table(df, cell_height=45, header_font="default", cell_font="default", header_bg_color="#191970",       header_align="center", cell_align="center", cell_bg_colors=["#9EDFF9", "white"], line_color="lightgrey", line_width=2, transparent=False):
     
     if header_font == "default":
         header_font = dict(family="Times New Roman", color="white", size=15)
@@ -517,12 +516,17 @@ def plot_table(df, cell_height=45, header_font="default", cell_font="default", h
 
     return fig
 
-def plot_distplot(df, column, hist=True, kde=True, gauss=True, show_box=True, points = False, 
-                  notched=True, show_mean=True, kde_resolution=128, colors="default", range_="auto",
-                  n_bins=None, x_legend=0.85, y_legend=0.8, show_legend=True, legend="default", bargap=0.03):
+def plot_distplot(df, column, hist=True, kde=True, gauss=False, show_box=True, points = False, x_range=None,
+                  notched=True, show_mean=True, kde_resolution=128, colors="default", n_bins=None, x_legend=0.85, y_legend=0.8, 
+                  show_legend=True, legend="default", bargap=0.03, transparent=True):
     
     # vrednosti koje fitujemo
+    
     variable_values = df[column].values
+    if x_range is not None:
+        variable_values = variable_values[(variable_values >= x_range[0]) & (variable_values <= x_range[1])]
+    
+    xaxis_range= [min(variable_values), max(variable_values)]
     
     # generiši vrednosti za x osu
     x_values = np.linspace(min(variable_values), max(variable_values), kde_resolution)
@@ -539,8 +543,6 @@ def plot_distplot(df, column, hist=True, kde=True, gauss=True, show_box=True, po
     if colors=="default":
         colors = ["#191970", "#64b5f6", "#ef6c00", "#03adfc"]
     
-    
-
     traces = []
     if show_box:
         box = go.Box(
@@ -584,9 +586,6 @@ def plot_distplot(df, column, hist=True, kde=True, gauss=True, show_box=True, po
         )
         traces.append(gauss_trace)
     
-    if range_=="auto":
-        range_= [min(variable_values), max(variable_values)]
-    
     if show_box:
         fig = make_subplots(rows=2, cols=1)
         fig.add_trace(box, row=1, col=1)
@@ -596,7 +595,7 @@ def plot_distplot(df, column, hist=True, kde=True, gauss=True, show_box=True, po
         fig.layout["xaxis2"].update(
             axis_layout(
                 show_grid=False, 
-                range_=range_,
+                range_=xaxis_range,
                 ticks=""
             )
         )
@@ -612,7 +611,7 @@ def plot_distplot(df, column, hist=True, kde=True, gauss=True, show_box=True, po
                 title="", 
                 ticks="", 
                 showticklabels=False,
-                range_=range_, 
+                range_=xaxis_range, 
                 show_grid=False,
             )
         )
@@ -626,7 +625,7 @@ def plot_distplot(df, column, hist=True, kde=True, gauss=True, show_box=True, po
         fig.layout["xaxis"].update(
             axis_layout(
                 title="", 
-                range_=range_, 
+                range_=xaxis_range, 
                 show_grid=False
             ),
         )
@@ -640,70 +639,97 @@ def plot_distplot(df, column, hist=True, kde=True, gauss=True, show_box=True, po
             exponentformat = 'power'
         )
     
+    legend_font = {"x": x_legend, "y": y_legend}
     
-    layout = go.Layout(bargap=0.02)
-    legend_font = {}
-    legend_font["x"] = x_legend
-    legend_font["y"] = y_legend
     if legend == "default":
-        legend_font.update(dict(bgcolor="rgba(0,0,0,0)",
-                                font=dict(size=16, family="Times New Roman")))
+        font = dict(size=16, family="Times New Roman")
+    legend_font.update({"font": font})
+        
     fig.update_layout(
         legend=legend_font,
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
         bargap=bargap
     )
+    if transparent:
+        fig.update_layout(
+            legend = dict(bgcolor="rgba(0,0,0,0)"),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+        )
     
     return fig
 
 
-def plot_predictions(y_true, y_predict, num_sample, title, figsize= (10,5)):
+def plot_predictions(y_true, y_predict, num_sample, true_marker_font="default", predict_marker_font="default", transparent=True):
     
-    sample_ind = np.random.randint(0, len(y_true), size = num_sample)
-    sample_true = y_true[sample_ind]
-    sample_predict = y_predict[sample_ind]
+    if true_marker_font=="default":
+        true_marker_font = dict(
+            color="green",
+            symbol="triangle-down",
+            size=6
+        )
     
-    plt.figure(figsize=figsize)
-    plt.scatter(np.arange(num_sample), sample_true, 
-                marker = 'o', s=30, edgecolors='b', facecolors='none', label = 'True values')
-    plt.scatter(np.arange(num_sample), sample_predict, 
-                marker = 'x', c='red', s=20, label = 'Predicted values')
-    val = [i for i in range(num_sample) for j in range(2)]
-    s = []
-    for i in range(num_sample):
-        s.append(sample_true[i])
-        s.append(sample_predict[i])
-    for i in range(num_sample):
-        plt.plot(val[2*i:2*i+2], s[2*i:2*i+2], ':', c = 'green', alpha=0.5)
-    plt.legend(loc = 'best', fontsize=8)
-    plt.xticks(np.arange(0,num_sample))
-    plt.grid(alpha = 0.4)
-    plt.ylabel("Price", fontsize = 10)
-    plt.title(title, fontsize=12)
-    plt.show()
+    if predict_marker_font=="default":
+        predict_marker_font=dict(
+            color="red",
+            symbol="x",
+            size=6
+        )
+        
     
     r2_ = r2_score(y_true, y_predict)
     mse = mean_squared_error(y_true, y_predict)
     mae = mean_absolute_error(y_true, y_predict)
+    
     print("Mean Root Squared Error: {0:.3f}.".format(mse**0.5))
     print("Mean Absolute Error: {0:.1f}.".format(mae))
     print("R Squared Metric: {0:.3f}.".format(r2_))
-
-
-def removeBarButtons():
-    return dict(
-        displaylogo=False,
-        modeBarButtonsToRemove=["pan2d", "lasso2d", "select2d", "toggleSpikelines", "autoScale2d",
-                                "hoverClosestCartesian", "hoverCompareCartesian"]
+    
+    zip_values = np.c_[y_true, y_predict]
+    np.random.shuffle(zip_values)
+    y_true = zip_values[:num_sample, 0]
+    y_predict = zip_values[:num_sample, 1]
+    
+    x = np.arange(1, len(y_true)+1, 1)
+    true_trace = go.Scatter(
+        x=x, 
+        y=y_true, 
+        mode="markers",
+        marker = true_marker_font,
+        name="True values"
     )
+    
+    predicted_trace = go.Scatter(
+        x=x, 
+        y=y_predict, 
+        mode="markers",
+        marker = predict_marker_font,
+        name="Predicted values"
+    )
+    
+    traces = [true_trace, predicted_trace]
+    
+    for i, (true, pred) in enumerate(zip(y_true, y_predict), 1):
+        trace = go.Scatter(
+            x=[i]*2, 
+            y=[true, pred],
+            mode="lines",
+            line=dict(
+                color="lightblue",
+                width=1
+            ),
+            showlegend=False
+        )
+        traces.append(trace)
+    
+    fig = go.Figure(data = traces)
+    
+    
+    if transparent:
+        fig.update_layout(
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)"
+            )
+
+    return fig
 
 
-def to_year(year):
-    dt_year = datetime.strptime(str(int(year)), '%Y')
-    return dt_year
-
-
-def update_dict(dictonary, update):
-    dictonary.update(update)
-    return dictonary

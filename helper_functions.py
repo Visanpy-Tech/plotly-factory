@@ -34,3 +34,16 @@ def make_counts_df(df, main_category, sub_category, n_main, n_sub, add_percentag
                     total_counts[main].append(sub)
 
     return pd.DataFrame(total_counts)
+
+
+
+def removeBarButtons():
+    return dict(
+        displaylogo=False,
+        modeBarButtonsToRemove=["pan2d", "lasso2d", "select2d", "toggleSpikelines", "autoScale2d",
+                                "hoverClosestCartesian", "hoverCompareCartesian"]
+    )
+
+def to_year(year):
+    dt_year = datetime.strptime(str(int(year)), '%Y')
+    return dt_year
