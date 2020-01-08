@@ -2,6 +2,4 @@ car_analysis_graphs_eng_lang.py
 car_analysis_graphs_serb_lang.py
 cars_figures.py
 _.ipynb
-.ipynb_checkpoints/*
 deleted_functions.py
-__pycache__/*

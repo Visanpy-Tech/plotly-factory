@@ -14,7 +14,6 @@ def axis_layout(title=None, title_size=16, title_color="#666666", grid_color="#F
                 tick_angle=0, tick_family="Times New Roman", tick_size=14, tick_color="#4d4d4d", ticks="",
                 show_exponent=None, exponent_format=None, range_=None, dtick=None, showticklabels=True, 
                 type_=None, fixedrange=True):
-
     axis_dict = dict(
         title=dict(
             text=title,
@@ -43,10 +42,9 @@ def axis_layout(title=None, title_size=16, title_color="#666666", grid_color="#F
     return axis_dict
 
 
-def title_layout(text, title_size=21, x_position=0.5, y_position=0.9, color="#A8A8A8", family="Times New Roman"):
-
-    title = dict(
-        text=text,
+def title_layout(title, title_size=21, x_position=0.5, y_position=0.9, color="#A8A8A8", family="Times New Roman"):
+    title_ = dict(
+        text=title,
         x=x_position,
         y=y_position,
         font=dict(
@@ -55,7 +53,36 @@ def title_layout(text, title_size=21, x_position=0.5, y_position=0.9, color="#A8
             family=family
         )
     )
-    return title
+    return title_
+
+
+def plot_hue(df, main_bars, sub_bars, transparent=True):
+    d_dict = defaultdict(list)
+
+    grp = df.groupby(by=[sub_bars, main_bars]).count()
+    for (main, sub), val in zip(grp.index, grp.values):
+        d_dict[main].append({sub: val[0]})
+
+    fig = go.Figure()
+    subbars_count = df.groupby(by=sub_bars).count()
+    subbars = subbars_count.sort_values(by=df.columns[-1]).index
+
+    for sub in list(subbars)[::-1]:
+        values = [list(i.items())[0] for i in d_dict[sub]]
+        values = sorted(values, key=lambda x: x[1], reverse=True)
+        x = [i[0] for i in values]
+        y = [i[1] for i in values]
+        trace = go.Bar(
+            x=x,
+            y=y,
+            name=sub,
+            text=sub
+        )
+        fig.add_trace(trace)
+    if transparent:
+        fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+    return fig
+
 
 
 def plot_box(df, y, x_main, main_categories, x_sub=None,  sub_categories=None, orientation="v", 
@@ -115,8 +142,8 @@ def plot_box(df, y, x_main, main_categories, x_sub=None,  sub_categories=None, o
 
         
     fig.update_layout(
-        {"boxmode": "group",
-         "legend": legend_font
+        {"boxmode":"group",
+         "legend":legend_font
         }
     )
     if transparent:
@@ -124,17 +151,17 @@ def plot_box(df, y, x_main, main_categories, x_sub=None,  sub_categories=None, o
     return fig
 
 
-def plot_horizontal_count_bars(df, column, first_n="all", colorscale="mint", color=None, show_percentage=False, 
+def plot_horizontal_count_bars(df, column, first_n="all", colorscale="algae", show_percentage=False, show_text=False, 
                     text_font="default", text_position="inside", text_percentage_space="  ", round_percentage_decimals=1,
-                    transparent=True):
+                              transparent=True):
     # font for text and percentage
     if text_font=="default":
         text_font= dict(
             family="Time New Roman", 
-            size=14, 
+            size=16, 
             color="#000080"
         )
-        
+    
     # count and sort entries in a given column
     total_counts = df[column].value_counts().sort_values(ascending=False)
     if first_n == "all":
@@ -158,23 +185,24 @@ def plot_horizontal_count_bars(df, column, first_n="all", colorscale="mint", col
         orientation="h",
         hoverinfo="x + y"
     )
-    if colorscale is None:
-        trace.update(
-            marker=dict(
-                color=color
-            )
-        )
-    
     
     # calculate percentages
-    if show_percentage:
-        
+    if show_text:
+        if show_percentage:
+            counts_normalized = x / sum(total_counts)
+            percentage = np.round(100 * counts_normalized, round_percentage_decimals)
+            text = ["<b>" + entry + text_percentage_space +
+                    str(percent) + " %" + "</b>" for entry, percent in zip(y, percentage)]     
+        else:
+            text = ["<b>" + y_ + "</b>" for y_ in y]
+            
+    elif show_percentage:
         counts_normalized = x / sum(total_counts)
         percentage = np.round(100 * counts_normalized, round_percentage_decimals)
         text = ["<b>" + entry + text_percentage_space +
-                str(percent) + " %" + "</b>" for entry, percent in zip(y, percentage)]     
+                str(percent) + " %" + "</b>" for entry, percent in zip(y, percentage)]   
     else:
-        text = ["<b>" + y_ + "</b>" for y_ in y]
+        text = ["" for y_ in y]
     
     # update trace with text
     trace.update(dict(
@@ -190,11 +218,10 @@ def plot_horizontal_count_bars(df, column, first_n="all", colorscale="mint", col
     return fig
 
 
-def plot_count_subplots(df, main_category, sub_category, n_rows, n_cols, n_bars, colorscale="mint",  show_main_percentages = True, 
-                        grid = True, vertical_spacing=0.1, horizontal_spacing = 0.05, share_x=False, share_y=True, transparent = False):
+def plot_subplots(df, main_category, sub_category, layout, n_rows, n_cols, n_bars,
+                  colorscale="mint", vertical_spacing=0.2, share_x=False, share_y=False):
 
     main_counts = df[main_category].value_counts()
-    main_percents = 100*main_counts/sum(main_counts)
     sub_counts = df[sub_category].value_counts()
     counts_dict = OrderedDict()
 
@@ -207,64 +234,30 @@ def plot_count_subplots(df, main_category, sub_category, n_rows, n_cols, n_bars,
                 counts_dict.update({main: [[sub, freq]]})
             else:
                 counts_dict[main].append([sub, freq])
-    
-    if show_main_percentages:
-        titles = [title + f" - {perc: .2f} %" for title, perc in main_percents.iteritems()]
-    else:
-        titles = [title for title, _ in main_percents.iteritems()]
+
     fig = pl.subplots.make_subplots(
         rows=n_rows,
         cols=n_cols,
-        subplot_titles=titles,
+        subplot_titles=list(main_counts.keys())[:n_cols * n_rows],
         shared_yaxes=share_y,
         shared_xaxes=share_x,
-        vertical_spacing=vertical_spacing,
-        horizontal_spacing=horizontal_spacing,
-    )
-    
-    traces = []
+        vertical_spacing=vertical_spacing)
+
     for i, main in enumerate(list(counts_dict.keys())[:n_rows * n_cols]):
         x = np.array(counts_dict[main])[:n_bars, 0]
-        if any([item.isdigit() for item in x]):
-            x = ["-" + item + "-" if item.isdigit() else item for item in x ]
-        y = np.array(counts_dict[main])[:, 1].astype(int)
-        y_bars = y[:n_bars]
-        counts_normalized = y_bars / sum(y)
-        percentage = np.round(100 * counts_normalized, 2)
-        text_percentage = [str(percent) + " %" for percent in percentage]
-        
+        y = np.array(counts_dict[main])[:n_bars, 1]
         trace = go.Bar(
             x=x,
-            y=y_bars,
+            y=y,
             marker=dict(
                 color=sub_counts,
                 colorscale=colorscale),
             hoverinfo="x + y",
-            text = text_percentage,
-            textposition = "auto",
-            showlegend=False
         )
-        
-        traces.append(trace)
-        
-    k = 0
-    for row in range(n_rows):
-        for col in range(n_cols):
-            fig.add_trace(traces[k], row=row+1, col=col+1)
-            k += 1
-    if grid:
-        if share_y:
-            fig.update_yaxes(axis_layout(show_grid=True, fixedrange=False, showticklabels=False))
-            for k in range(n_rows):
-                fig.update_yaxes(axis_layout(show_grid=True, fixedrange=False, showticklabels=True), col=1, row=k+1)
-        else:
-            fig.update_yaxes(axis_layout(show_grid=True))
-                
-        
-    
-    if transparent:
-        fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-        
+        fig.add_trace(trace, row=i // 2 + 1, col=i % 2 + 1)
+        if i > n_cols * n_rows - 2:
+            break
+    fig.update_layout(layout)
     return fig
 
 
@@ -480,18 +473,22 @@ def plot_heatmap(df_corr, show_annotations=True, colorscale="brwnyl", plot_trian
 
 
 
-def plot_table(df, cell_height=45, header_font="default", cell_font="default", header_bg_color="#191970", header_align="center", 
-               cell_align="center", cell_bg_colors=["#9EDFF9", "white"], line_color="lightgrey", line_width=2, transparent=False):
+def plot_table(df, title=False, cell_height=45, add_table_height=0, width=700, header_font="default", cell_font="default",
+               header_bg_color="#191970", header_align="center", cell_align="center",
+               cell_bg_colors=["rgba(158, 223, 249, 0.20)", "white"], split_words_on= True, line_color="lightgrey", line_width=2):
     
     if header_font == "default":
         header_font = dict(family="Times New Roman", color="white", size=15)
         
     if cell_font == "default":
         cell_font = dict(family="Times New Roman", color="#002266", size=14)
+    
+    if split_words_on:
+        header_values = [val.replace("-", "<br>") for val in df.columns]
         
     table = go.Table(
         header=dict(
-            values=df.columns,
+            values=header_values,
             fill_color=header_bg_color,
             line_color=line_color,
             line_width=line_width,
@@ -509,13 +506,20 @@ def plot_table(df, cell_height=45, header_font="default", cell_font="default", h
             line_width=line_width,
         ),
     )
-    
-
-    fig = go.Figure(data=[table])
-    if transparent:
-        fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+    layout = go.Layout(
+        height=(len(df) + 1) * cell_height + len(df) + add_table_height,
+        width=width,
+        margin=dict(r=1, b=0, l=1, t=0),
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+    )
+    if title:
+        layout.update(height=(len(df) + 1) * cell_height + len(df) + 30 + add_table_height,
+                      title=title, margin=dict(r=1, b=0, l=1, t=35), width=width)
+    fig = go.Figure(data=[table], layout=layout)
 
     return fig
+
 
 def plot_distplot(df, column, hist=True, kde=True, gauss=True, show_box=True, points = False, 
                   notched=True, show_mean=True, kde_resolution=128, colors="default", range_="auto",
@@ -656,6 +660,29 @@ def plot_distplot(df, column, hist=True, kde=True, gauss=True, show_box=True, po
     )
     
     return fig
+
+def count_by(df, main_category, sub_category, n_main, n_sub, add_percentage=False,):
+    main_counts = df[main_category].value_counts()
+    total_counts = OrderedDict()
+    for main in main_counts.index[:n_main]:
+        sub_counts = df.loc[df[main_category] ==
+                            main][sub_category].value_counts()
+        subs = sub_counts.index[:n_sub]
+        percentage = 100 * sub_counts.values[:n_sub] / sum(sub_counts.values)
+        for sub, percent in zip(subs, percentage):
+            if main not in total_counts.keys():
+                if add_percentage:
+                    total_counts.update(
+                        {main: [sub + f"<br>{percent:.1f} %</br>"]})
+                else:
+                    total_counts.update({main: [sub]})
+            else:
+                if add_percentage:
+                    total_counts[main].append(
+                        sub + f"<br>{percent:.1f} %</br>")
+                else:
+                    total_counts[main].append(sub)
+    return pd.DataFrame(total_counts)
 
 
 def plot_predictions(y_true, y_predict, num_sample, title, figsize= (10,5)):
