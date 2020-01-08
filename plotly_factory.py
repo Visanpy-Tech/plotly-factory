@@ -124,9 +124,8 @@ def plot_box(df, y, x_main, main_categories, x_sub=None,  sub_categories=None, o
     return fig
 
 
-def plot_horizontal_count_bars(df, column, first_n="all", colorscale="mint", color=None, show_percentage=False, 
-                    text_font="default", text_position="inside", text_percentage_space="  ", round_percentage_decimals=1,
-                    transparent=True):
+def plot_horizontal_count_bars(df, column, first_n="all", colorscale="mint", color=None, 
+                show_percentage=False, text_font="default", text_position="inside", transparent=True):
     # font for text and percentage
     if text_font=="default":
         text_font= dict(
@@ -170,11 +169,10 @@ def plot_horizontal_count_bars(df, column, first_n="all", colorscale="mint", col
     if show_percentage:
         
         counts_normalized = x / sum(total_counts)
-        percentage = np.round(100 * counts_normalized, round_percentage_decimals)
-        text = ["<b>" + entry + text_percentage_space +
-                str(percent) + " %" + "</b>" for entry, percent in zip(y, percentage)]     
+        percentage = 100 * counts_normalized
+        text = [f"<b>{entry}  {percent: .2f}%</b>" for entry, percent in zip(y, percentage)]
     else:
-        text = ["<b>" + y_ + "</b>" for y_ in y]
+        text = [f"<b>{entry}</b>" for entry in y]
     
     # update trace with text
     trace.update(dict(
@@ -408,8 +406,15 @@ def plot_histograms(df, main_column, main_categories, sub_column=None, sub_categ
 
 
 
-def plot_heatmap(df_corr, show_annotations=True, colorscale="brwnyl", plot_triangle = False,
-                 showscale=True, text_color = "#000000", text_size = 14, xgap=1, ygap=1):
+def plot_heatmap(df_corr, colorscale="brwnyl", cut_in_half = False, showscale=True, textfont="default", 
+                    xgap=1, ygap=1, transparent=True):
+    
+    if textfont=="default":
+        textfont = {
+                "color": "#000000",
+                "size": 14,
+                "family": "Times New Roman"
+        }
     
     trace=go.Heatmap(
         colorscale=colorscale,
@@ -419,7 +424,7 @@ def plot_heatmap(df_corr, show_annotations=True, colorscale="brwnyl", plot_trian
         showscale=showscale
     )
     
-    if plot_triangle:
+    if cut_in_half:
         corr_triangle = np.array([[None for k in range(df_corr.shape[1]-1)] for j in range(df_corr.shape[0]-1)])
         for k, vals in enumerate(df_corr[1:].values):
             corr_triangle[k][:k+1] = np.round(vals[:k+1], 2)
@@ -427,63 +432,49 @@ def plot_heatmap(df_corr, show_annotations=True, colorscale="brwnyl", plot_trian
         trace.update(z = corr_triangle[::-1], x = df_corr.index[:-1], 
                      y = df_corr.index[1:][::-1], text = corr_triangle[::-1])
         fig = go.Figure(data=[trace])
-        if show_annotations:
-            annotations = []
-            for k, y in enumerate(df_corr.index):
-                for x in df_corr.index[:k]:
-                    anot = go.layout.Annotation(
-                        x=x,
-                        y=y,
-                        xref="x",
-                        yref="y",
-                        text= "<b>" + str(round(df_corr[x][y], 2)) + "</b>",
-                        showarrow=False,
-                        font = {
-                            "color": text_color,
-                            "size": text_size,
-                            "family": "Times New Roman"
-                        }
-                    )
-                    annotations.append(anot)
-
-
-    
         
+        annotations = []
+        for k, y in enumerate(df_corr.index):
+            for x in df_corr.index[:k]:
+                anot = go.layout.Annotation(
+                    x=x,
+                    y=y,
+                    xref="x",
+                    yref="y",
+                    text = f"<b>{df_corr[x][y]: .2f}</b>",
+                    showarrow=False,
+                    font = textfont
+                )
+                annotations.append(anot)
+
     else:
         trace.update(z = df_corr.values[::-1], x = df_corr.index, 
                      y = df_corr.index[::-1], text= np.round(df_corr.values[::-1], 2))
         fig = go.Figure(data=[trace])
-        
-        if show_annotations:
-            annotations = []
-            for k, y in enumerate(df_corr.index):
-                for x in df_corr.index:
-                    anot = go.layout.Annotation(
-                        x=x,
-                        y=y,
-                        xref="x",
-                        yref="y",
-                        text= "<b>" + str(round(df_corr[x][y], 2)) + "</b>",
-                        showarrow=False,
-                        font = {
-                            "color": text_color,
-                            "size": text_size,
-                            "family": "Times New Roman"
-                        }
-                    )
-                    annotations.append(anot)
-    
+        annotations = []
+        for k, y in enumerate(df_corr.index):
+            for x in df_corr.index:
+                anot = go.layout.Annotation(
+                    x=x,
+                    y=y,
+                    xref="x",
+                    yref="y",
+                    text = f"<b>{df_corr[x][y]: .2f}</b>",
+                    showarrow=False,
+                    font = textfont
+                )
+                annotations.append(anot)
     
     fig.update_layout(
         showlegend=False,
         annotations=annotations
-    )    
-
-
-    fig.update_layout(
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)"
-        )
+    )
+    
+    if transparent:
+        fig.update_layout(
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)"
+            )
     return fig
 
 
