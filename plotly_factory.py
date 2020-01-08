@@ -190,8 +190,10 @@ def plot_horizontal_count_bars(df, column, first_n="all", colorscale="mint", col
     return fig
 
 
-def plot_count_subplots(df, main_category, sub_category, n_rows, n_cols, n_bars, colorscale="mint",  show_main_percentages = True, 
-                        grid = True, vertical_spacing=0.1, horizontal_spacing = 0.05, share_x=False, share_y=True, transparent = False):
+def plot_count_subplots(df, main_category, sub_category, n_rows, n_cols, n_bars, 
+                    colorscale="mint",  show_main_percentages = True, grid = True, 
+                    vertical_spacing=0.1, horizontal_spacing = 0.05, share_x=False, share_y=True, 
+                    transparent = False):
 
     main_counts = df[main_category].value_counts()
     main_percents = 100*main_counts/sum(main_counts)
@@ -212,6 +214,7 @@ def plot_count_subplots(df, main_category, sub_category, n_rows, n_cols, n_bars,
         titles = [title + f" - {perc: .2f} %" for title, perc in main_percents.iteritems()]
     else:
         titles = [title for title, _ in main_percents.iteritems()]
+
     fig = pl.subplots.make_subplots(
         rows=n_rows,
         cols=n_cols,
@@ -268,19 +271,23 @@ def plot_count_subplots(df, main_category, sub_category, n_rows, n_cols, n_bars,
     return fig
 
 
-def plot_histograms(df, main_column, main_categories, sub_column=None, sub_categories=None, show_box=False,
-                    x_legend=0.84, y_legend=0.7, legend="default", percentage=False, points = False,notched=True, mean=True, percentage_relative_to="sub_category", sort_values="initial_sort", transparent=True):
+def plot_histograms(df, main_column, main_categories, sub_column=None, sub_categories=None, color_pallete = "default",
+                    show_box=False, x_legend=0.80, y_legend=0.7, legend_font="default", percentage=False, 
+                    points = False, notched=True, mean=True, percentage_relative_to="sub_category", 
+                    sort_values="initial_sort", transparent=True):
+    
     legend_font = {"x": x_legend, "y":y_legend}
     
-    if legend == "default":
+    if legend_font == "default":
         legend_font.update(
            {
                 "bgcolor":"rgba(0,0,0,0)",
                 "font":dict(size=18, family="Times New Roman")
            }
         )
-
-    colors = ["#191970", "#64b5f6", "#ef6c00", "#ffd54f"]
+    
+    if color_pallete=="default":
+        colors = ["#191970", "#64b5f6", "#ef6c00", "#ffd54f"]
     
     
     # a trick to generate bar charts only for main category
@@ -323,17 +330,17 @@ def plot_histograms(df, main_column, main_categories, sub_column=None, sub_categ
                         denominator.at[main] = 0
                 y_ = 100 * counts.values / denominator.values
 
-            text = [str(count) + ", " + str(round(y, 2)) + " %" for count, y in zip(counts, y_)]
+            text = [f"{count}, {y: .2f} %" for count, y in zip(counts, y_)]
         else:
             y_ = counts.values
-            text = [str(x) + str(y) for x, y in zip(x_, y_)]
+            text = [f"{y: .0f}" for y in y_]
 
         # sorting options
         if sort_values == "counts":
             x_y_ = list(zip(x_, y_))
             x_y_sorted = sorted(x_y_, key=lambda item: item[1], reverse=True)
-            x_ = [item[0] for item in x_y_sorted]
-            y_ = [item[1] for item in x_y_sorted]
+            x_ = np.array([item[0] for item in x_y_sorted])
+            y_ = np.array([item[1] for item in x_y_sorted])
         elif sort_values == "initial_sort":
             values_dict = OrderedDict(zip(x_, y_))
             y_ = np.array([values_dict.get(key) for key in main_categories])
@@ -341,36 +348,38 @@ def plot_histograms(df, main_column, main_categories, sub_column=None, sub_categ
 
         # for every subcategory make a bar chart
         bar = go.Bar(
-            y=np.round(y_, 2),
-            x=x_,
-            marker=dict(color=colors[k], opacity=0.7),
-            name=sub,
-            text=text,
-            hoverinfo="x +  text",
-            showlegend=showlegend
-                    )
+                y=np.round(y_, 2),
+                x=x_,
+                marker=dict(color=colors[k], opacity=0.7),
+                name=sub,
+                text=text,
+                textposition="auto",
+                hoverinfo="x +  text",
+                showlegend=showlegend
+            )
 
         if show_box:
             # if show_box is True, make a subplots 2x1
             if k == 0:
                 fig = make_subplots(rows=2, cols=1)
-            box = go.Box(x=df.loc[df[sub_column] == sub][main_column],
-                         marker=dict(color=colors[k]),
-                         boxpoints=points,
-                         notched=notched,
-                         boxmean=mean,
-                         showlegend=False,
-
-                         )
+            box = go.Box(
+                x=df.loc[df[sub_column] == sub][main_column],
+                marker=dict(color=colors[k]),
+                boxpoints=points,
+                notched=notched,
+                boxmean=mean,
+                showlegend=False,
+            )
+            
             # add box and bar plots to the subplots
             fig.add_trace(box, row=1, col=1)
             fig.add_trace(bar, row=2, col=1)
 
             fig.layout["xaxis"].update(
-                axis_layout(showticklabels=False,
-                            range_=[main_categories[0], 
-                                    main_categories[-1]],
-                           )
+                axis_layout(
+                    showticklabels=False,
+                    range_=[main_categories[0], main_categories[-1]],
+                )
             )
 
             # set box-bar ratio to 0.8 : 0.2
