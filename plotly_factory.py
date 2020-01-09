@@ -125,7 +125,7 @@ def plot_box(df, y, x_main, main_categories, x_sub=None,  sub_categories=None, o
 
 
 def plot_horizontal_count_bars(df, column, first_n="all", colorscale="mint", color=None, 
-                show_percentage=False, text_font="default", text_position="inside", transparent=True):
+                show_percentage=False, text_font="default", text_position="auto", transparent=True):
     # font for text and percentage
     if text_font=="default":
         text_font= dict(
@@ -188,90 +188,9 @@ def plot_horizontal_count_bars(df, column, first_n="all", colorscale="mint", col
     return fig
 
 
-def plot_count_subplots(df, main_category, sub_category, n_rows, n_cols, n_bars, 
-                    colorscale="mint",  show_main_percentages = True, grid = True, 
-                    vertical_spacing=0.1, horizontal_spacing = 0.05, share_x=False, share_y=True, 
-                    transparent = False):
-
-    main_counts = df[main_category].value_counts()
-    main_percents = 100*main_counts/sum(main_counts)
-    sub_counts = df[sub_category].value_counts()
-    counts_dict = OrderedDict()
-
-    for main in main_counts.index:
-        counts = df.loc[df[main_category] == main][sub_category].value_counts()
-        subs = counts.index
-        subs_freq = counts.values
-        for sub, freq in zip(subs, subs_freq):
-            if main not in counts_dict.keys():
-                counts_dict.update({main: [[sub, freq]]})
-            else:
-                counts_dict[main].append([sub, freq])
-    
-    if show_main_percentages:
-        titles = [title + f" - {perc: .2f} %" for title, perc in main_percents.iteritems()]
-    else:
-        titles = [title for title, _ in main_percents.iteritems()]
-
-    fig = pl.subplots.make_subplots(
-        rows=n_rows,
-        cols=n_cols,
-        subplot_titles=titles,
-        shared_yaxes=share_y,
-        shared_xaxes=share_x,
-        vertical_spacing=vertical_spacing,
-        horizontal_spacing=horizontal_spacing,
-    )
-    
-    traces = []
-    for i, main in enumerate(list(counts_dict.keys())[:n_rows * n_cols]):
-        x = np.array(counts_dict[main])[:n_bars, 0]
-        if any([item.isdigit() for item in x]):
-            x = ["-" + item + "-" if item.isdigit() else item for item in x ]
-        y = np.array(counts_dict[main])[:, 1].astype(int)
-        y_bars = y[:n_bars]
-        counts_normalized = y_bars / sum(y)
-        percentage = np.round(100 * counts_normalized, 2)
-        text_percentage = [str(percent) + " %" for percent in percentage]
-        
-        trace = go.Bar(
-            x=x,
-            y=y_bars,
-            marker=dict(
-                color=sub_counts,
-                colorscale=colorscale),
-            hoverinfo="x + y",
-            text = text_percentage,
-            textposition = "auto",
-            showlegend=False
-        )
-        
-        traces.append(trace)
-        
-    k = 0
-    for row in range(n_rows):
-        for col in range(n_cols):
-            fig.add_trace(traces[k], row=row+1, col=col+1)
-            k += 1
-    if grid:
-        if share_y:
-            fig.update_yaxes(axis_layout(show_grid=True, fixedrange=False, showticklabels=False))
-            for k in range(n_rows):
-                fig.update_yaxes(axis_layout(show_grid=True, fixedrange=False, showticklabels=True), col=1, row=k+1)
-        else:
-            fig.update_yaxes(axis_layout(show_grid=True))
-                
-        
-    
-    if transparent:
-        fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-        
-    return fig
-
-
 def plot_histograms(df, main_column, main_categories, sub_column=None, sub_categories=None, color_pallete = "default",
-                    show_box=False, x_legend=0.80, y_legend=0.7, legend_font="default", percentage=False, 
-                    points = False, notched=True, mean=True, percentage_relative_to="sub_category", 
+                    show_box=False, x_legend=0.80, y_legend=0.7, legend_font="default", percentage=False, show_text=False,
+                    points = False, notched=True, mean=True, percentage_relative_to="sub_category", text_position="auto",
                     sort_values="initial_sort", transparent=True):
     
     legend_font = {"x": x_legend, "y":y_legend}
@@ -306,16 +225,13 @@ def plot_histograms(df, main_column, main_categories, sub_column=None, sub_categ
         # count entries of each subcategory that belongs to provided main category
         counts = df.loc[(df[main_column].isin(main_categories)) & (
             df[sub_column] == sub)][main_column].value_counts().sort_index()
-
         for main in main_categories:
             if main not in counts.index:
-                print(f"Column {main} not found")
                 counts.at[main] = 0
-
         x_ = counts.index
 
         ## percentage options ##
-        if percentage == True:
+        if percentage:
             if percentage_relative_to == "sub_category":
                 y_ = 100 * counts.values / len(df.loc[df[sub_column] == sub])
             elif percentage_relative_to == "total":
@@ -327,33 +243,40 @@ def plot_histograms(df, main_column, main_categories, sub_column=None, sub_categ
                     if main not in denominator.index:
                         denominator.at[main] = 0
                 y_ = 100 * counts.values / denominator.values
-
-            text = [f"{count}, {y: .2f} %" for count, y in zip(counts, y_)]
         else:
             y_ = counts.values
-            text = [f"{y: .0f}" for y in y_]
 
         # sorting options
         if sort_values == "counts":
             x_y_ = list(zip(x_, y_))
             x_y_sorted = sorted(x_y_, key=lambda item: item[1], reverse=True)
-            x_ = np.array([item[0] for item in x_y_sorted])
-            y_ = np.array([item[1] for item in x_y_sorted])
+            x_ = [item[0] for item in x_y_sorted]
+            y_ = [item[1] for item in x_y_sorted]
         elif sort_values == "initial_sort":
             values_dict = OrderedDict(zip(x_, y_))
             y_ = np.array([values_dict.get(key) for key in main_categories])
             x_ = main_categories
+        
+        if percentage:
+            text = [f"{y:.1f} %" for y in  y_]
+        else:
+            text = [f"{y:.0f}" for y in  y_]
+            
+            
 
         # for every subcategory make a bar chart
         bar = go.Bar(
-                y=np.round(y_, 2),
-                x=x_,
-                marker=dict(color=color_pallete[k], opacity=0.7),
-                name=sub,
-                text=text,
-                textposition="auto",
-                hoverinfo="x +  text",
-                showlegend=showlegend
+            y=np.round(y_, 2),
+            x=x_,
+            marker=dict(color=color_pallete[k], opacity=0.7),
+            name=sub,
+            text=text,
+            hoverinfo="x +  text",
+            showlegend=showlegend
+                    )
+        if show_text:
+            bar.update(
+                textposition=text_position
             )
 
         if show_box:
